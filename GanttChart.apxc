@@ -1,0 +1,699 @@
+public class GanttChart {
+    
+    @testVisible static List<Integer> numOfDays = new List<Integer>();
+        
+    @AuraEnabled
+    public static Response responseWrap(ParameterWrap param){
+        Response res = new Response();
+        Date stDat ;
+        Date endDat ;
+       
+        stDat = Date.newInstance(param.year, param.month, 1);
+        endDat = Date.newInstance(param.year, param.month, 8);
+        if(param.weekDay == 16){
+            stDat = Date.newInstance(param.year, param.month, 9);  endDat = Date.newInstance(param.year, param.month, 16);
+        }
+        if(param.weekDay == 24){
+            stDat = Date.newInstance(param.year, param.month, 17);  endDat = Date.newInstance(param.year, param.month, 24);
+        }
+        if(param.weekDay == 31){
+            stDat = Date.newInstance(param.year, param.month, 25); endDat = Date.newInstance(param.year, param.month, 31);
+        }
+        if(param.weekDay == 32){
+            stDat = Date.newInstance(param.year, param.month, 1);
+            endDat = Date.newInstance(param.year, param.month, 31);
+        }
+        if(param.selectedDay != null ){
+            stDat = Date.newInstance(param.year, param.month, param.selectedDay);
+            endDat = Date.newInstance(param.year, param.month, param.selectedDay);
+            initNumOfDays(param.weekDay, true, param.year, param.month);
+        }else{
+            initNumOfDays(param.weekDay, false, param.year, param.month);
+        }
+        Integer totalSpaceFamily =(Integer) [SELECT count(id) myCount FROM Space_Family__c ][0].get('myCount');        
+        List<SpaceFamilyWrapper> tempSpaceFamList = new List<SpaceFamilyWrapper>();
+        List<Space_Family__c> withspaceFamilyLimit = New List<Space_Family__c>();
+
+        for(Space_Family__c sf : [SELECT id, Name, expanded__c FROM Space_Family__c ]){
+           
+            SpaceFamilyWrapper sfInstance  = new SpaceFamilyWrapper();
+            sfInstance.expanded =true;
+            sfInstance.sfName = sf.Name;
+            sfInstance.sfRecordId = sf.id;
+            sfInstance.spaceList = new List<SpaceWrapper>();
+            res.tempSpaceFamMap.put(sf.id, sfInstance);
+        }
+        if(param.selectedDay != null){
+            endDat = endDat.addDays(1);
+            
+            getSpaces1(res, stDat, endDat, param.selectedDay, param.spaceLimit, param.spaceOppLimit, param.isFirstTime);
+        }else{
+            getSpaces(res, stDat, endDat, param.selectedDay, param.spaceLimit, param.spaceOppLimit, null, param.isFirstTime);
+        } 
+        
+       res.spacesFamilyList = res.tempSpaceFamMap.values();
+        res.tempSpaceFamMap = null;
+        
+        res.isMoreSpace = !(totalSpaceFamily == res.spacesFamilyList.size());
+
+        return res;
+    } 
+   
+    @AuraEnabled
+    public static Response spacesFamilyList(ParameterWrap param){
+        Date stDat ;
+        Date endDat ;
+      
+        stDat = Date.newInstance(param.year, param.month, 1);
+        endDat = Date.newInstance(param.year, param.month, 8);
+        if(param.weekDay == 16){
+            stDat = Date.newInstance(param.year, param.month, 9);  endDat = Date.newInstance(param.year, param.month, 16);
+        }
+        if(param.weekDay == 24){
+            stDat = Date.newInstance(param.year, param.month, 17);  endDat = Date.newInstance(param.year, param.month, 24);
+        }
+        if(param.weekDay == 31){
+            stDat = Date.newInstance(param.year, param.month, 25); endDat = Date.newInstance(param.year, param.month, 31);
+        }
+        if(param.weekDay == 32){
+            stDat = Date.newInstance(param.year, param.month, 1);
+            endDat = Date.newInstance(param.year, param.month, 31);
+        }
+        if(param.selectedDay != null ){
+            stDat = Date.newInstance(param.year, param.month, param.selectedDay);
+            endDat = Date.newInstance(param.year, param.month, param.selectedDay);
+            initNumOfDays(param.weekDay, true, param.year, param.month);
+        }else{
+            initNumOfDays(param.weekDay, false, param.year, param.month);
+        }
+       
+        Integer totalSpaceFamily =(Integer) [SELECT count(id) myCount FROM Space_Family__c ][0].get('myCount');   
+        List<SpaceFamilyWrapper> tempSpaceFamList = new List<SpaceFamilyWrapper>();
+        Response res = new Response();
+        for(Space_Family__c sf : [SELECT id, Name, expanded__c FROM Space_Family__c]){
+           
+            SpaceFamilyWrapper sfInstance  = new SpaceFamilyWrapper();
+            sfInstance.expanded =true;
+            sfInstance.sfName = sf.Name;
+            sfInstance.sfRecordId = sf.id;
+            sfInstance.spaceList = new List<SpaceWrapper>();
+            res.tempSpaceFamMap.put(sf.id, sfInstance);
+        }
+        if(param.selectedDay != null){
+            endDat = endDat.addDays(1);
+            
+            getSpaces1(res, stDat, endDat, param.selectedDay, param.spaceLimit, param.spaceOppLimit, param.isFirstTime);
+        }else{
+            getSpaces(res, stDat, endDat, param.selectedDay, param.spaceLimit, param.spaceOppLimit, null, param.isFirstTime);
+        }
+        res.spacesFamilyList = res.tempSpaceFamMap.values();
+        res.tempSpaceFamMap = null;
+        
+        res.isMoreSpace = !(totalSpaceFamily == res.spacesFamilyList.size());
+
+        return res;
+    }
+     @AuraEnabled
+    public static List<SpaceFamilyWrapper> showMoreSpaceList(Integer month, Integer year, Integer weekDay, Integer selectedDay, Integer spaceFamilyLimit, Integer spaceLimit , Integer spaceOppLimit, String sfId){
+       
+        Date stDat ;
+        Date endDat ;
+        stDat = Date.newInstance(year, month, 1);
+        endDat = Date.newInstance(year, month, 8);
+        if(weekDay == 16){
+            stDat = Date.newInstance(year, month, 9);  endDat = Date.newInstance(year, month, 16);
+        }
+        if(weekDay == 24){
+            stDat = Date.newInstance(year, month, 17);  endDat = Date.newInstance(year, month, 24);
+        }
+        if(weekDay == 31){
+            stDat = Date.newInstance(year, month, 25); endDat = Date.newInstance(year, month, 31);
+        }
+        if(weekDay == 32){
+            stDat = Date.newInstance(year, month, 1);
+            endDat = Date.newInstance(year, month, 31);
+        }
+        if(selectedDay != null ){
+            stDat = Date.newInstance(year, month, selectedDay);
+            endDat = Date.newInstance(year, month, selectedDay);
+            initNumOfDays(weekDay, true, year, month);
+        }else{
+            initNumOfDays(weekDay, false, year, month);
+        }
+       
+        
+        List<SpaceFamilyWrapper> tempSpaceFamList = new List<SpaceFamilyWrapper>();
+       	Response res = new Response();
+        for(Space_Family__c sf : [SELECT id, Name, expanded__c FROM Space_Family__c WHERE id = :sfId ]){
+           
+            SpaceFamilyWrapper sfInstance  = new SpaceFamilyWrapper();
+            sfInstance.expanded =true;
+            sfInstance.sfName = sf.Name;
+            sfInstance.sfRecordId = sf.id;
+            sfInstance.spaceList = new List<SpaceWrapper>();
+            res.tempSpaceFamMap.put(sf.id, sfInstance);
+        }
+        if(selectedDay != null){
+            endDat = endDat.addDays(1);
+            
+            getSpaces1(res, stDat, endDat, selectedDay, spaceLimit, spaceOppLimit, false);
+        }else{
+            getSpaces(res, stDat, endDat, selectedDay, spaceLimit, spaceOppLimit, null, false);
+        }
+        
+        tempSpaceFamList = res.tempSpaceFamMap.values();
+		
+        return tempSpaceFamList;
+    }
+    
+     @AuraEnabled
+    public static List<SpaceFamilyWrapper> showMoreSpaceToOppList(Integer month, Integer year, Integer weekDay, Integer selectedDay, Integer spaceFamilyLimit, Integer spaceLimit , Integer spaceOppLimit, String sfId, String spId){
+        
+        Date stDat ;
+        Date endDat ;
+     
+        stDat = Date.newInstance(year, month, 1);
+        endDat = Date.newInstance(year, month, 8);
+        if(weekDay == 16){
+            stDat = Date.newInstance(year, month, 9);  endDat = Date.newInstance(year, month, 16);
+        }
+        if(weekDay == 24){
+            stDat = Date.newInstance(year, month, 17);  endDat = Date.newInstance(year, month, 24);
+        }
+        if(weekDay == 31){
+            stDat = Date.newInstance(year, month, 25); endDat = Date.newInstance(year, month, 31);
+        }
+        if(weekDay == 32){
+            stDat = Date.newInstance(year, month, 1);
+            endDat = Date.newInstance(year, month, 31);
+        }
+        if(selectedDay != null ){
+            stDat = Date.newInstance(year, month, selectedDay);
+            endDat = Date.newInstance(year, month, selectedDay);
+            initNumOfDays(weekDay, true, year, month);
+        }else{
+            initNumOfDays(weekDay, false, year, month);
+        }
+       
+        
+        List<SpaceFamilyWrapper> tempSpaceFamList = new List<SpaceFamilyWrapper>();
+        Response res = new Response();
+        for(Space_Family__c sf : [SELECT id, Name, expanded__c FROM Space_Family__c WHERE id = :sfId]){
+            
+            SpaceFamilyWrapper sfInstance  = new SpaceFamilyWrapper();
+            sfInstance.expanded =true;
+            sfInstance.sfName = sf.Name;
+            sfInstance.sfRecordId = sf.id;
+            sfInstance.spaceList = new List<SpaceWrapper>();
+            res.tempSpaceFamMap.put(sf.id, sfInstance);
+        }
+        if(selectedDay != null){
+            endDat = endDat.addDays(1);
+            
+            getSpaces1(res, stDat, endDat, selectedDay, spaceLimit, spaceOppLimit, false);
+        }else{
+            getSpaces(res, stDat, endDat, selectedDay, spaceLimit, spaceOppLimit, spId, false);
+        }
+        
+        tempSpaceFamList = res.tempSpaceFamMap.values();
+		
+        return tempSpaceFamList;
+    }
+    
+    public static void initNumOfDays(Integer weekDay, Boolean isDaySelected, Integer year, Integer month){
+        numOfDays = new List<Integer>();
+        Integer initilization = 1;
+        if(weekDay == 16) initilization = 9;
+        if(weekDay == 24) initilization = 17;
+        if(weekDay == 31) initilization = 25;
+        Integer tempWeek = weekDay;
+        if(weekDay == 32 || weekDay == 31)
+            tempWeek = Date.daysInMonth(year, month);
+        
+        if(isDaySelected){
+            
+            initilization = 0; 
+            tempWeek = 23;
+        }
+        for (Integer index = initilization; index <= tempWeek; index++) {
+            numOfDays.add(index);
+        }
+       
+    }
+    public static void getSpaces1(Response res , Date stDat, Date endDat, Integer selectedDay, Integer spaceLimit, Integer spaceOppLimit, Boolean isFirstTime){
+        List<String> holdingCon = new List<String>{'Enquiry Not Holding', 'Turned Down'};
+        Integer limitValue = Limits.getLimitQueryRows() - Limits.getQueryRows();
+        Integer day = stDat.day();
+        Integer year = stDat.year();
+        Integer month = stDat.month();
+        
+        List<String> eventStage = new List<String>{'Proposal', 'Released', 'Closed Lost', 'Add Space'};
+       
+      
+       AggregateResult []results = [SELECT count(Id) mySpace  FROM Space__c WHERE Space_Family__c In :res.tempSpaceFamMap.keySet()];
+        Integer spaceCount = ((Integer)results[0].get('mySpace'));
+        Map<id, Space__C> spacesCountMap =new  Map<id, Space__C>([SELECT Name,Space_Family__c, (SELECT id FROM Space_to_Opp_Join__r WHERE  (Main_Event__r.Event_Stage__c != :eventStage AND Holding_Option__c NOT IN :holdingCon)  AND (Start_Date__c >= :stDat AND End_Date__c <= :endDat)) FROM Space__c WHERE Space_Family__c In :res.tempSpaceFamMap.keySet() ORDER BY OrderNumber__c ASC NULLS LAST]);
+        Map<id, Integer> spaceOppCount = new Map<id, Integer>();
+        Map<id, Integer> spaceCountMap = new Map<id, Integer>();
+        for (space__c sp : spacesCountMap.values()) {
+            spaceOppCount.put(sp.id, spacesCountMap.get(sp.id).Space_to_Opp_Join__r.size());
+            if(spaceCountMap.containsKey(sp.Space_Family__c)){
+                spaceCountMap.put(sp.Space_Family__c, spaceCountMap.get(sp.Space_Family__c) + 1);
+            }else{
+                spaceCountMap.put(sp.Space_Family__c, 1);
+            }
+        }
+        for (Space__c sp  : [SELECT Id, Name, Space_Family__c, expanded__c, (SELECT Start_Date__c, End_Date__c, Derig_Start__c, Derig_End__c, Main_Event__r.Name, Main_Event__r.Event_Name__c, Main_Event__c, Main_Event__r.Event_Type__c, Main_Event__r.Event_Number__c,
+                            Rigging_Start__c,  Rigging_End__c, Holding_Option__c, Main_Event__r.Client_Sector__c, Main_Event__r.Event_Stage__c, Main_Event__r.Owner.Name, Main_Event__r.Size_of_Event__c
+                            FROM Space_to_Opp_Join__r WHERE (Main_Event__r.Event_Stage__c NOT IN :eventStage AND Holding_Option__c NOT IN :holdingCon  AND (
+                                                                             (CALENDAR_YEAR(Start_Date__c)= :year AND CALENDAR_MONTH(Start_Date__c) = :month AND DAY_IN_MONTH(Start_Date__c) <= :day AND DAY_IN_MONTH(End_Date__c) >= :day)
+                                                                             OR (CALENDAR_YEAR(Derig_Start__c)= :year AND CALENDAR_MONTH(Derig_Start__c) = :month AND DAY_IN_MONTH(Derig_Start__c) <= :day AND DAY_IN_MONTH(Derig_End__c) >= :day)
+                                                                             OR (CALENDAR_YEAR(Rigging_Start__c)= :year AND CALENDAR_MONTH(Rigging_Start__c) = :month AND DAY_IN_MONTH(Rigging_Start__c) <= :day AND DAY_IN_MONTH(Rigging_End__c) >= :day))) LIMIT 50000) FROM Space__c WHERE Space_Family__c In :res.tempSpaceFamMap.keySet() ORDER BY OrderNumber__c ASC NULLS LAST LIMIT 50000]) {
+            if (res.tempSpaceFamMap.containsKey(sp.Space_Family__c)) {
+                SpaceFamilyWrapper sf = res.tempSpaceFamMap.get(sp.Space_Family__c);
+                SpaceWrapper spInstance = new SpaceWrapper();
+                spInstance.spName = sp.Name;
+                spInstance.spRecordId = sp.id;
+               spInstance.expanded = isFirstTime ? true:sp.expanded__c;
+                
+                if(spaceCountMap.get(sf.sfRecordId) > spaceLimit){
+                    sf.isMore =  true;
+                }else{
+                    sf.isMore =  false;
+                }
+                
+                if(sp.Space_to_Opp_Join__r.size() != 0 && spaceOppCount.get(sp.id) > sp.Space_to_Opp_Join__r.size()){
+                    spInstance.isMore =  true;
+                }else{
+                    spInstance.isMore =  false;
+                }
+                spInstance.spaceOppList = new List<SpaceToOppJoinWrapper>();
+                Map<Integer, List<String>> occupiedDate = new Map<Integer, List<String>>();
+                 Map<Integer, List<String>> occupiedDateMapForFamily = new Map<Integer, List<String>>();
+                Integer minmumDat = -1;
+                Integer maximumDat = 32;
+                for (space_to_Opp_Join__c sOpp : sp.Space_to_Opp_Join__r) {
+                    Boolean evtBol = sopp.Start_Date__c != null && sopp.End_Date__c != null;
+                    if(evtBol){
+                    getDaysBetw(sOpp.Start_Date__c, sopp.End_Date__c, occupiedDate, 'Event', true, selectedDay) ;
+                    }
+                    Boolean dergBol = sopp.Derig_Start__c != null && sopp.Derig_End__c != null;
+                    if(dergBol){
+                        getDaysBetw(sopp.Derig_Start__c, sopp.Derig_End__c, occupiedDate, 'Derig', true, selectedDay);
+                    }
+                    Boolean riggBol = sopp.Rigging_Start__c != null && sopp.Rigging_End__c != null;
+                    if(riggBol){
+                        getDaysBetw(sopp.Rigging_Start__c, sopp.Rigging_End__c, occupiedDate, 'Rigging', true, selectedDay) ;
+                    }
+                    if (evtBol && dergBol && riggBol) {
+                      if(spInstance.spaceOppList.size() > 0 && sopp.Rigging_Start__c.day() > minmumDat && sopp.Derig_End__c.day() > maximumDat && maximumDat < sopp.Rigging_Start__c.day()){
+                            spInstance.spaceOppList[spInstance.spaceOppList.size()-1].isMoreEvent = true;
+                           
+                            spInstance.onRowSpace = true;
+                            if( spInstance.spaceOppList[spInstance.spaceOppList.size()-1].innerSpaceOppList.size() > 0){
+                                 spInstance.spaceOppList[spInstance.spaceOppList.size()-1].innerSpaceOppList[ spInstance.spaceOppList[spInstance.spaceOppList.size()-1].innerSpaceOppList.size()-1].nextBlankDat = sopp.Rigging_Start__c.day();
+                            }else{
+                                 spInstance.spaceOppList[spInstance.spaceOppList.size()-1].nextBlankDat = sopp.Rigging_Start__c.day();
+                            }
+                            spInstance.spaceOppList[spInstance.spaceOppList.size()-1].innerSpaceOppList.add(getSpaceOpp(sOpp, false, selectedDay));
+                            spInstance.spaceOppList[spInstance.spaceOppList.size()-1].innerSpaceOppList[spInstance.spaceOppList[spInstance.spaceOppList.size()-1].innerSpaceOppList.size()-1].nextBlankDat = 32;
+                          //  System.debug(spInstance.spaceOppList[0].nextBlankDat);
+                        }else if(spInstance.spaceOppList.size() > 0){
+                            spInstance.spaceOppList[spInstance.spaceOppList.size()-1].isMoreEvent = false;
+                            spInstance.spaceOppList.add(getSpaceOpp(sOpp, true, selectedDay));
+                            spInstance.spaceOppList[spInstance.spaceOppList.size()-1].nextBlankDat = 32;
+                           
+                        }else{
+                             spInstance.spaceOppList.add(getSpaceOpp(sOpp, true, selectedDay));
+                            spInstance.spaceOppList[spInstance.spaceOppList.size()-1].nextBlankDat = 32;
+                        }
+                        minmumDat = sopp.Rigging_Start__c.day();
+                        maximumDat  = sopp.Derig_End__c.day();
+                     //   spInstance.spaceOppList.add(getSpaceOpp(sOpp, true, selectedDay));
+                    }
+                    occupiedDateMapForFamily.putAll(occupiedDate);
+                }
+                    sf.spaceList.add(spInstance);
+                	res.tempSpaceFamMap.put(sp.Space_Family__c, sf);
+            }
+        }
+    }
+    public static void getSpaces(Response res , Date stDat, Date endDat, Integer selectedDay, Integer spaceLimit, Integer spaceOppLimit, string spid, Boolean isFirstTime){
+     
+        List<String> holdingCon = new List<String>{'Enquiry Not Holding', 'Turned Down'};
+        Integer limitValue = Limits.getLimitQueryRows() - Limits.getQueryRows();
+        List<String> eventStage = new List<String>{'Proposal', 'Released', 'Closed Lost', 'Add Space'};
+       
+       	AggregateResult []results = [SELECT count(Id) mySpace  FROM Space__c WHERE Space_Family__c In :res.tempSpaceFamMap.keySet()];
+        Integer spaceCount = ((Integer)results[0].get('mySpace'));
+        Map<id, Space__C> spacesCountMap =new  Map<id, Space__C>([SELECT Name,Space_Family__c, (SELECT id FROM Space_to_Opp_Join__r WHERE  (Main_Event__r.Event_Stage__c != :eventStage AND Holding_Option__c NOT IN :holdingCon)  AND (Start_Date__c >= :stDat AND End_Date__c <= :endDat)) FROM Space__c WHERE Space_Family__c In :res.tempSpaceFamMap.keySet() ORDER BY OrderNumber__c ASC NULLS LAST]);
+        Map<id, Integer> spaceOppCount = new Map<id, Integer>();
+        Map<id, Integer> spaceCountMap = new Map<id, Integer>();
+
+        for (space__c sp : spacesCountMap.values()) {
+           spaceOppCount.put(sp.id, spacesCountMap.get(sp.id).Space_to_Opp_Join__r.size());
+            if(spaceCountMap.containsKey(sp.Space_Family__c)){
+                spaceCountMap.put(sp.Space_Family__c, spaceCountMap.get(sp.Space_Family__c) + 1);
+            }else{
+                spaceCountMap.put(sp.Space_Family__c, 1);
+            }
+        }
+        Set<id> sfIds = res.tempSpaceFamMap.keySet();
+        String query = 'SELECT  Id, Name, Space_Family__c, expanded__c, (SELECT Start_Date__c, End_Date__c, Derig_Start__c, Derig_End__c, Main_Event__r.Name,  Main_Event__r.Event_Name__c, Main_Event__c, Main_Event__r.Event_Type__c, Main_Event__r.Event_Number__c,';
+        query += ' Rigging_Start__c,  Rigging_End__c, Holding_Option__c, Main_Event__r.Client_Sector__c, Main_Event__r.Event_Stage__c, Main_Event__r.Owner.Name, Main_Event__r.Size_of_Event__c';
+        query += ' FROM Space_to_Opp_Join__r WHERE (Main_Event__r.Event_Stage__c NOT IN :eventStage AND Holding_Option__c NOT IN :holdingCon)  AND (Start_Date__c >= :stDat AND End_Date__c <= :endDat) ORDER BY Rigging_Start__c nulls last) FROM Space__c WHERE Space_Family__c In :sfIds';
+        if(spid != null && spId != ''){
+            query += ' AND id = :spid';
+        }
+        query += ' ORDER BY OrderNumber__c ASC NULLS LAST LIMIT 50000';
+        for (Space__c sp  : Database.query(query)) {
+            if (res.tempSpaceFamMap.containsKey(sp.Space_Family__c)) {
+                SpaceFamilyWrapper sf = res.tempSpaceFamMap.get(sp.Space_Family__c);
+                SpaceWrapper spInstance = new SpaceWrapper();
+                spInstance.spName = sp.Name;
+                spInstance.spRecordId = sp.id;
+                
+                spInstance.expanded = isFirstTime ? true:sp.expanded__c;
+                 
+                if(spaceCountMap.get(sf.sfRecordId) > spaceLimit){
+                    sf.isMore =  true;
+                }else{
+                    sf.isMore =  false;
+                }
+                
+                if(sp.Space_to_Opp_Join__r.size() != 0 && spaceOppCount.get(sp.id) > sp.Space_to_Opp_Join__r.size()){
+                    spInstance.isMore =  true;
+                }else{
+                    spInstance.isMore =  false;
+                }
+                spInstance.spaceOppList = new List<SpaceToOppJoinWrapper>();
+                Map<Integer, List<String>> occupiedDate = new Map<Integer, List<String>>();
+                 Map<Integer, List<String>> occupiedDateMapForFamily = new Map<Integer, List<String>>();
+                 Integer minmumDat = -1;
+                Integer maximumDat = 32;
+                for (space_to_Opp_Join__c sOpp : sp.Space_to_Opp_Join__r) {
+                    Boolean evtBol = sopp.Start_Date__c != null && sopp.End_Date__c != null;
+                    if(evtBol){
+                    getDaysBetw(sOpp.Start_Date__c, sopp.End_Date__c, occupiedDate, 'Event', false, selectedDay) ;
+                    }
+                    Boolean dergBol = sopp.Derig_Start__c != null && sopp.Derig_End__c != null;
+                    if(dergBol){
+                        getDaysBetw(sopp.Derig_Start__c, sopp.Derig_End__c, occupiedDate, 'Derig', false, selectedDay);
+                    }
+                    Boolean riggBol = sopp.Rigging_Start__c != null && sopp.Rigging_End__c != null;
+                    if(riggBol){
+                        getDaysBetw(sopp.Rigging_Start__c, sopp.Rigging_End__c, occupiedDate, 'Rigging', false, selectedDay) ;
+                    }
+                    if (evtBol && dergBol && riggBol) {
+                      //  System.debug('@@@@' + sopp.Rigging_Start__c);
+                        if(spInstance.spaceOppList.size() > 0 && sopp.Rigging_Start__c.day() > minmumDat && sopp.Derig_End__c.day() > maximumDat && maximumDat < sopp.Rigging_Start__c.day()){
+                            spInstance.spaceOppList[spInstance.spaceOppList.size()-1].isMoreEvent = true;
+                           
+                            spInstance.onRowSpace = true;
+                            if( spInstance.spaceOppList[spInstance.spaceOppList.size()-1].innerSpaceOppList.size() > 0){
+                                 spInstance.spaceOppList[spInstance.spaceOppList.size()-1].innerSpaceOppList[ spInstance.spaceOppList[spInstance.spaceOppList.size()-1].innerSpaceOppList.size()-1].nextBlankDat = sopp.Rigging_Start__c.day();
+                            }else{
+                                 spInstance.spaceOppList[spInstance.spaceOppList.size()-1].nextBlankDat = sopp.Rigging_Start__c.day();
+                            }
+                            spInstance.spaceOppList[spInstance.spaceOppList.size()-1].innerSpaceOppList.add(getSpaceOpp(sOpp, false, selectedDay));
+                            spInstance.spaceOppList[spInstance.spaceOppList.size()-1].innerSpaceOppList[spInstance.spaceOppList[spInstance.spaceOppList.size()-1].innerSpaceOppList.size()-1].nextBlankDat = 32;
+                          //  System.debug(spInstance.spaceOppList[0].nextBlankDat);
+                        }else if(spInstance.spaceOppList.size() > 0){
+                            spInstance.spaceOppList[spInstance.spaceOppList.size()-1].isMoreEvent = false;
+                            spInstance.spaceOppList.add(getSpaceOpp(sOpp, false, selectedDay));
+                            spInstance.spaceOppList[spInstance.spaceOppList.size()-1].nextBlankDat = 32;
+                           
+                        }else{
+                             spInstance.spaceOppList.add(getSpaceOpp(sOpp, false, selectedDay));
+                            spInstance.spaceOppList[spInstance.spaceOppList.size()-1].nextBlankDat = 32;
+                        }
+                        minmumDat = sopp.Rigging_Start__c.day();
+                        maximumDat  = sopp.Derig_End__c.day();
+                        
+                    }
+                    occupiedDateMapForFamily.putAll(occupiedDate);
+                }
+                
+                sf.spaceList.add(spInstance);
+                
+                res.tempSpaceFamMap.put(sp.Space_Family__c, sf);
+            }
+        }
+    }
+    public static void getDaysBetw(Datetime stDat, Datetime enddat, Map<Integer, List<String>> occupiedDate, String operationName, Boolean isDaySelected, integer selectedDay){
+        Integer st = stDat.day();
+        Integer endPoint = enddat.day();
+        if(isDaySelected ){
+            
+          
+                
+            if(stDat.day() <= selectedDay && enddat.day() >= selectedDay){
+                st = stDat.hour();
+                endPoint = enddat.hour();
+                if(stDat.day() < enddat.day() && selectedDay ==  stDat.day()){
+                    
+                    endPoint = 23;
+                    
+                }else if(stDat.day() < enddat.day() && selectedDay ==  enddat.day()){
+                    
+                    st = 0;
+                }else{
+                    st = 0;
+                    endPoint = 23;
+                }
+            }else{
+                st = 0;
+                endPoint = -1;
+            }
+           
+        }else{
+            st = stDat.day();
+            endPoint = enddat.day();
+        }
+        Map<Integer, List<String>> tempList = new Map<Integer, List<String>>();
+        for(Integer index = st ; index <= endPoint; index++){
+           
+            if(occupiedDate.containsKey(index)){
+                List<String> tempStrLst = occupiedDate.get(index);
+
+                occupiedDate.put(index, tempStrLst);
+            }else{
+                List<String> tempStrLst = new List<String>();
+                tempStrLst.add(operationName + ' Start at:- ' + String.valueOf(stDat.time()));
+                tempStrLst.add(operationName + ' End at:- ' + String.valueOf(enddat.time()));
+                occupiedDate.put(index, tempStrLst);
+            }
+            
+        }
+    }
+    public static void getOccupiedDataForMily(Map<Integer, List<String>>  occupiedDate, integer lngth){
+        
+       
+        for(Integer index = 0 ; index < numOfDays.size(); index++){
+            
+
+                if (occupiedDate.containsKey(numOfDays[index])) {
+                    
+                
+                }
+                
+        }
+
+    }
+  
+    public static SpaceToOppJoinWrapper getSpaceOpp(space_to_Opp_Join__c sOpp, Boolean isDay, Integer selectedDay){
+        SpaceToOppJoinWrapper spOpp = new SpaceToOppJoinWrapper();
+        spOpp.eventRecordId = sOpp.Main_Event__c;
+        if(isDay){
+           
+            spOpp.startDay = sOpp.Start_Date__c.hour();
+            spOpp.endDay = sOpp.End_Date__c.hour();
+            spOpp.derigStartDay = sOpp.Derig_Start__c.hour();
+            spOpp.derigEndDay = sOpp.Derig_End__c.hour();
+            spOpp.riggingStartDay = sOpp.Rigging_Start__c.hour();
+            spOpp.riggingEndDay = sOpp.Rigging_End__c.hour();
+            // Set Event Start Time
+            if(sOpp.Start_Date__c.day() < sOpp.End_Date__c.day() ){
+                spOpp.endDay = 23;
+            }
+             if(sOpp.Start_Date__c.day() < selectedDay && sOpp.End_Date__c.day() > selectedDay){
+                spOpp.startDay = 0;  spOpp.endDay = 23;
+            }
+             if (sOpp.End_Date__c.day() == selectedDay && sOpp.End_Date__c.day() > sOpp.Start_Date__c.day()) {
+                 
+                spOpp.startDay = 0; spOpp.endDay = sOpp.End_Date__c.hour();
+            }
+            // End Event start and end time
+            // Set Derig start and end Time
+
+            if(sOpp.Derig_Start__c.day() < sOpp.Derig_End__c.day() ){ spOpp.derigEndDay = 23; }
+            if(sOpp.Derig_Start__c.day() < selectedDay && sOpp.Derig_End__c.day() > selectedDay){
+                spOpp.derigStartDay = 0; spOpp.derigEndDay = 23;
+            }
+             if (sOpp.Derig_End__c.day() == selectedDay && sOpp.Derig_End__c.day() > sOpp.Rigging_Start__c.day()) {
+                 
+                spOpp.derigStartDay = 0; spOpp.derigEndDay = sOpp.Derig_End__c.hour();
+            }
+            // End derig start and end Time
+
+            //Start Rigging Start and End Time
+            if(sOpp.Rigging_Start__c.day() < sOpp.Rigging_End__c.day() ){
+                spOpp.riggingEndDay = 23;
+            }
+            if(sOpp.Rigging_Start__c.day() < selectedDay && sOpp.Rigging_End__c.day() > selectedDay){
+                spOpp.riggingStartDay = 0; spOpp.riggingEndDay = 23;
+            }
+             if (sOpp.Rigging_End__c.day() == selectedDay && sOpp.Rigging_End__c.day() > sOpp.Rigging_Start__c.day()) {
+                 
+                spOpp.riggingStartDay = 0;
+                spOpp.riggingEndDay = sOpp.Rigging_End__c.hour();
+            }
+            // set outside value from date time if day is not matched with selected day
+            if(sOpp.Derig_Start__c.day() != selectedDay && sOpp.Derig_End__c.day() != selectedDay){
+                spOpp.derigStartDay = 30;
+                spOpp.derigEndDay = 30;
+            }
+           
+            if(sOpp.Rigging_Start__c.day() != selectedDay && sOpp.Rigging_End__c.day() != selectedDay){
+               spOpp.riggingStartDay = 30;
+                 spOpp.riggingEndDay = 30;
+            }
+             if(sOpp.Start_Date__c.day() != selectedDay && sOpp.End_Date__c.day() != selectedDay){
+               spOpp.startDay = 30;
+                 spOpp.endDay = 30;
+            }
+           
+           
+        }else {
+            spOpp.startDay = sOpp.Start_Date__c.day();
+            spOpp.endDay = sOpp.End_Date__c.day();
+            spOpp.derigStartDay = sOpp.Derig_Start__c.day();
+            spOpp.derigEndDay = sOpp.Derig_End__c.day();
+            spOpp.riggingStartDay = sOpp.Rigging_Start__c.day();
+            spOpp.riggingEndDay = sOpp.Rigging_End__c.day();
+        }
+        
+        spOpp.eventTitle = 'Event Name : ' + (String.valueOf(sOpp.Main_Event__r.Event_Name__c) == null ? '\n':String.valueOf(sOpp.Main_Event__r.Event_Name__c)) + '\n';
+        spOpp.eventTitle += 'Event Number : ' + (String.valueOf(sOpp.Main_Event__r.Event_Number__c) == null ? '\n': String.valueOf(sOpp.Main_Event__r.Event_Number__c) + '\n');
+        spOpp.eventTitle += 'Pax : '  +  (String.valueOf(sOpp.Main_Event__r.Size_of_Event__c) == null ? '\n' : String.valueOf(sOpp.Main_Event__r.Size_of_Event__c) + '\n');
+        spOpp.eventTitle += 'Event Type : ' +  (String.valueOf(sOpp.Main_Event__r.Event_Type__c) == null ? '\n': String.valueOf(sOpp.Main_Event__r.Event_Type__c) + '\n');
+        spOpp.eventTitle += 'Owner Name: ' +  (String.valueOf(sOpp.Main_Event__r.Owner.Name) == null ? '\n':String.valueOf(sOpp.Main_Event__r.Owner.Name) + '\n');
+        spOpp.eventTitle += 'Main Event Stage : ' + (String.valueOf(sOpp.Main_Event__r.Event_Stage__c) == null ? '\n': String.valueOf(sOpp.Main_Event__r.Event_Stage__c) + '\n');
+        spOpp.eventTitle += 'Organisation Sector : ' + (String.valueOf(sOpp.Main_Event__r.Client_Sector__c) == null ? '\n': String.valueOf(sOpp.Main_Event__r.Client_Sector__c) + '\n');
+        spOpp.eventTitle += 'Tenancy Start : ' + (String.valueOf(sOpp.Rigging_Start__c) == null ? '\n' :String.valueOf(sOpp.Rigging_Start__c) + '\n');
+        spOpp.eventTitle += 'Tenancy End: ' + (String.valueOf(sOpp.Derig_End__c) == null ? '\n': String.valueOf(sOpp.Derig_End__c) + '\n');
+
+        spOpp.eventName = sopp.Main_Event__r.Event_Name__c;
+        spOpp.eventRecordId = sOpp.Main_Event__c;
+        spOpp.Holding_Option = sOpp.Holding_Option__c;
+        spOpp.startTime = String.valueOf(sOpp.Rigging_Start__c.time());
+        spOpp.endTime = String.valueOf(sOpp.Derig_End__c.time());
+        return spOpp;
+    }
+
+    public class SpaceFamilyWrapper{
+        @AuraEnabled
+        public Boolean isMore{get; set;}
+        @AuraEnabled
+        public Boolean expanded{get;set;}
+        @AuraEnabled
+        public String sfName{get;set;}
+        @AuraEnabled
+        public String sfRecordId{get;set;}
+        @AuraEnabled
+        public List<SpaceWrapper> spaceList {get; set;}
+
+        public SpaceFamilyWrapper(){
+            this.expanded = false;
+            this.spaceList = new List<SpaceWrapper>();
+            for(Integer index : numOfDays){
+
+            }
+        }
+    }
+
+    public class SpaceWrapper{
+         @AuraEnabled
+        public Boolean onRowSpace{get; set;}
+        @AuraEnabled
+        public Boolean isMore{get; set;}
+        @AuraEnabled
+        public String spName{get;set;}
+        @AuraEnabled
+        public String spRecordId{get;set;}
+        @AuraEnabled
+        public Boolean expanded{get;set;}
+
+        @AuraEnabled
+        public List<SpaceToOppJoinWrapper> spaceOppList {get; set;}
+        public SpaceWrapper(){
+            this.expanded = false;
+            this.spaceOppList = new List<SpaceToOppJoinWrapper> ();
+        }
+    }
+    // Wrapper class of space_To_Opp_Join contains all events details
+    public class SpaceToOppJoinWrapper{
+        @AuraEnabled
+        public List<SpaceToOppJoinWrapper> innerSpaceOppList {get; set;}
+        @AuraEnabled
+        public Boolean isMoreEvent{get; set;}
+        @AuraEnabled
+        public Integer nextBlankDat{get; set;}
+        
+        @AuraEnabled
+        public Integer startDay{get; set;}
+        @AuraEnabled
+        public Boolean isMore{get; set;}
+        @AuraEnabled
+        public Integer endDay{get; set;}
+        @AuraEnabled
+        public Integer derigStartDay{get; set;}
+        @AuraEnabled
+        public Integer derigEndDay{get; set;}
+        @AuraEnabled	
+        public Integer riggingStartDay{get; set;}
+        @AuraEnabled
+        public Integer riggingEndDay{get; set;}
+        @AuraEnabled
+        public String eventTitle{get; set;}
+        @AuraEnabled
+        public String eventName{get; set;}
+        @AuraEnabled
+        public id eventRecordId{get; set;}
+        @AuraEnabled
+        public String Holding_Option{get; set;}
+        @AuraEnabled
+        public String startTime{get; set;}
+        @AuraEnabled
+        public String endTime{get; set;}   
+        public SpaceToOppJoinWrapper(){
+            innerSpaceOppList = new List<SpaceToOppJoinWrapper>();
+        }
+    }
+
+     public class Response{
+        Map<id, SpaceFamilyWrapper> tempSpaceFamMap = new Map<id, SpaceFamilyWrapper>();
+        @AuraEnabled
+        public List<SpaceFamilyWrapper> spacesFamilyList{get; set;}
+        @AuraEnabled
+        public Boolean isMoreSpace {get; set;}
+    }
+    public class ParameterWrap{
+        @AuraEnabled
+        public Boolean isFirstTime {get; set;}
+        @AuraEnabled
+        public Integer month {get; set;}
+        @AuraEnabled
+        public Integer year{get; set;}
+        @AuraEnabled
+        public Integer weekDay{get; set;}
+        @AuraEnabled
+        public Integer selectedDay{get; set;}
+        @AuraEnabled
+        public Integer spaceFamilyLimit{get; set;}
+        @AuraEnabled
+        public Integer spaceLimit{get; set;}
+        @AuraEnabled
+        public Integer spaceOppLimit{get; set;}
+    }
+}

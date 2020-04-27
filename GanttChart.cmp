@@ -1,0 +1,369 @@
+<!--
+     ////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+     // -Code for GanttChart Calendar
+     ////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+     /* >>- Last Changed -<<
+      * 2020.04.24 - 
+      */
+    -->
+
+<aura:component implements="force:appHostable,flexipage:availableForAllPageTypes,flexipage:availableForRecordHome,force:hasRecordId,forceCommunity:availableForAllPageTypes,force:lightningQuickAction" controller="GanttChart"
+                access="public">
+    
+    <aura:handler name="init" value="{!this}" action="{!c.doInit}"/> 
+    <aura:attribute name="numOfDays" type="List"/>
+    <aura:attribute name="numOfYears" type="List"/>
+    <aura:attribute name="numOfHours" type="List"/>
+    <aura:attribute name="spaceFamily" type="List"/>
+    <aura:attribute name="isSpinnerOpen" type="Boolean" default="true"/>
+    <aura:attribute name="statusMonth" type="String"/>
+    <aura:attribute name="statusYear" type="String" />
+    <aura:attribute name="selectedDay" type="String" />
+    <aura:attribute name="statusWeek" type="Integer" default="32"/>
+    <aura:attribute name="showMonthButton" type="Boolean" default="true"/>
+    <aura:attribute name="nextShowMonthButton" type="Boolean" default="true"/>
+    <aura:attribute name="previousShowMonthButton" type="Boolean" default="true"/>
+    <aura:attribute name="previousShowButton" type="Boolean" default="false"/>
+    <aura:attribute name="nextShowButton" type="Boolean" default="false"/>
+    <aura:attribute name="showButton" type="Boolean" default="false"/>
+    <aura:attribute name= "getmonthName" type="String"/>
+    <aura:attribute name="isDayFilter" type="Boolean" default="false"/>
+    
+    <!-- Contains table width according to screen size -->
+    <aura:attribute name="divHeight" type="Integer"  />
+    <aura:attribute name="isCollapse" type="Boolean" default="false"/>
+    <aura:attribute name="spaceFamilyLimit" type="Integer"  default="1"/>
+    <aura:attribute name="spaceLimit" type="Integer"  default="1"/>
+    <aura:attribute name="spaceOppLimit" type="Integer"  default="1"/>
+    <aura:attribute name="isMoreSpaceFamily" type="Boolean" default="true"/>
+    <aura:attribute name="isFirstTime" type="Boolean" default="true"/>
+    
+    
+    <div class="container" style="position: relative;
+                                  padding: 0;
+                                  background: var(--lwc-cardColorBackground,rgb(255, 255, 255));
+                                  border: var(--lwc-borderWidthThin,1px) solid var(--lwc-cardColorBorder,rgb(221, 219, 218));
+                                  border-radius: var(--lwc-borderRadiusMedium,0.25rem);
+                                  background-clip: padding-box;
+                                  box-shadow: var(--lwc-cardShadow,0 2px 2px 0 rgba(0, 0, 0, 0.10));
+                                  ">
+        
+        <div class="demo-only demo-only--sizing slds-grid slds-wrap">
+            <aura:if isTrue="{!v.isSpinnerOpen}">
+                <lightning:spinner alternativeText="Loading" variant="brand" name="spinner"
+                                   aura:id="spinner"/>
+            </aura:if>
+            <div class="slds-size_2-of-10">
+                <div class="slds-text-align_center slds-m-around_x-small">
+                    <lightning:select aura:id ="month" class="slds-size_3-of-3" name="month" 
+                                      label="Filter Chart by Month" 
+                                      onchange ="{!c.selectedMonth}" value="{!v.statusMonth}">
+                        <option value="1">January</option>
+                        <option value="2">Februrary</option>
+                        <option value="3">March</option>
+                        <option value="4">April</option>
+                        <option value="5">May</option>
+                        <option value="6">June</option>
+                        <option value="7">July</option>
+                        <option value="8">August</option>
+                        <option value="9">September</option>
+                        <option value="10">October</option>
+                        <option value="11">November</option>
+                        <option value="12">December</option>
+                    </lightning:select>
+                </div>
+            </div>
+            <div class="slds-size_2-of-10">
+                <div class="slds-text-align_center slds-m-around_x-small">
+                    <lightning:select aura:id ="week" class="slds-size_3-of-3" name="select2" 
+                                      label="Filter Chart by Week" onchange ="{!c.selectedWeek}"
+                                      value="{!v.statusWeek}">
+                        <option value="8">First Week</option>
+                        <option value="16">Second Week</option>
+                        <option value="24">Third Week</option>
+                        <option value="31">Fourth Week</option>
+                        <option value="32">Full Month</option>
+                    </lightning:select>
+                </div>
+            </div>
+            <div class="slds-size_2-of-10">
+                <div class="slds-text-align_center slds-m-around_x-small">
+                    <lightning:select label="Filter Chart by Year" aura:id="year"
+                                      onchange ="{!c.selectedYear}" value="{!v.statusYear}" 
+                                      name="year">
+                        <aura:iteration items="{!v.numOfYears}" var="yr">
+                            <option value="{!yr.i}">{!yr}</option>
+                        </aura:iteration>
+                    </lightning:select>
+                </div>
+            </div>
+            <!-- Filter on day value -->
+            <div class="slds-size_2-of-10">
+                <div class="slds-text-align_center slds-m-around_x-small">
+                    <lightning:select label="Filter Chart by Day" aura:id="day" 
+                                      onchange ="{!c.handleOnChangeDay}" value="{!v.selectedDay}"
+                                      name="day">
+                        <option value="AllDays">All Days</option>
+                        <aura:iteration items="{!v.numOfHours}" var="dayValue">
+                            <option value="{!dayValue.i}">{!dayValue.i}</option>
+                        </aura:iteration>
+                    </lightning:select>
+                </div>
+            </div>
+            <div class="slds-size_2-of-10">
+                <div class="slds-text-align_center slds-m-around_x-small" style="margin-top: 1.8rem;
+                                                                                 background-color: #16325c;
+                                                                                 padding: 2px;">
+                    <lightning:button variant="inverse" value="collapseall" label="Collapse All" 
+                                      title="Expand All" onclick="{! c.expandAll }" aura:id="expandAndCollapse"/>
+                </div>
+            </div>
+            <div class="slds-size_2-of-10">
+                <div class="slds-text-align_center slds-m-around_x-small" style="margin-top: 1.8rem;
+                                                                                 background-color: #16325c;
+                                                                                 padding: 2px;">
+                    <lightning:button variant="inverse" label="Today" title="Today" onclick="{! c.handleToday }"/>
+                </div>
+            </div>
+            <br/><br/>
+            <div class="slds-size_2-of-2">
+                <div class="tableContainer">
+                    <div class="slds-scrollable_x wrapper" style="{! 'height:520px; padding:0rem; background: var(--lwc-cardColorBackground,rgb(255, 255, 255));border: var(--lwc-borderWidthThin,1px) solid var(--lwc-cardColorBorder,rgb(221, 219, 218));
+                                                                  border-radius: var(--lwc-borderRadiusMedium,0.25rem);
+                                                                  background-clip: padding-box;
+                                                                  box-shadow: var(--lwc-cardShadow,0 2px 2px 0 rgba(0, 0, 0, 0.10));width:'+v.divHeight+'px;'}">
+                        <table aria-multiselectable="true" class="slds-table slds-no-row-hover slds-table_bordered slds-table_resizable-cols slds-tree slds-table_tree slds-table_fixed-layout " role="grid" id="ganttcharttable">
+                            <thead>
+                                <tr class="slds-line-height_reset">
+                                    <th aria-label="Spaces" aria-sort="none" class="slds-has-button-menu slds-is-resizable slds-is-sortable" scope="col" style="width: 12rem;">
+                                        <a class="slds-th__action slds-text-link_reset" href="javascript:void(0);" role="button" tabindex="-1">
+                                            <div class="slds-grid slds-grid_vertical-align-center slds-has-flexi-truncate">
+                                                <span class="slds-truncate" title="Spaces">Spaces</span>
+                                            </div>
+                                        </a>
+                                    </th>
+                                    <aura:if isTrue="{!v.statusWeek == 32}">
+                                        <th class="cells" style="width:2rem;">
+                                            <aura:if isTrue="{! and(v.showMonthButton,v.previousShowMonthButton)}">
+                                                <lightning:buttonIcon iconName="utility:chevronleft" alternativeText="previous"
+                                                                      onclick="{!c.previousMonth}" variant="bare"/>
+                                            </aura:if>
+                                            <aura:if isTrue="{! and(v.showButton,v.previousShowButton)}">
+                                                <lightning:buttonIcon iconName="utility:chevronleft" alternativeText="Previous"
+                                                                      onclick="{!c.previousWeek}" variant="bare"/>
+                                            </aura:if>
+                                        </th>
+                                        <aura:set attribute="else">
+                                            <th class="cells" style="width:5rem;">
+                                                <aura:if isTrue="{! and(v.showMonthButton,v.previousShowMonthButton)}">
+                                                    <lightning:buttonIcon iconName="utility:chevronleft" alternativeText="previous" onclick="{!c.previousMonth}" variant="bare"/>
+                                                </aura:if>
+                                                <aura:if isTrue="{! and(v.showButton,v.previousShowButton)}">
+                                                    <lightning:buttonIcon iconName="utility:chevronleft" alternativeText="Previous" onclick="{!c.previousWeek}" variant="bare"/>
+                                                </aura:if>
+                                            </th>
+                                        </aura:set>
+                                    </aura:if>
+                                    <aura:if isTrue="{!v.isDayFilter}">
+                                        <aura:iteration items="{!v.numOfDays}" var="item" >
+                                            <th style="width:5rem;" aria-label="{! (item.res+' '+v.getmonthName+' '+v.selectedDay+', '+v.statusYear)}" aria-sort="none" class="{! or((item.res) == 'SAT ',(item.res) == 'SUN ') ? 'slds-is-resizable slds-is-sortable shadeWeekends' : 'slds-is-resizable slds-is-sortable'}" scope="col">
+                                                <a class="slds-th__action slds-text-link_reset" href="javascript:void(0);" role="button" tabindex="0">
+                                                    <div class="slds-grid slds-grid_vertical-align-center slds-has-flexi-truncate">
+                                                        <span class="slds-truncate" title="{! (item.res+' '+v.getmonthName+' '+v.selectedDay+', '+v.statusYear)}">{!item.res}</span>
+                                                    </div>
+                                                </a>
+                                            </th>
+                                        </aura:iteration>
+                                        <aura:set attribute="else">
+                                            <aura:if isTrue="{!v.statusWeek == 32}"> 
+                                                <aura:iteration items="{!v.numOfDays}" var="item" >
+                                                    <th style="width:5rem;" aria-label="{! (item.res+' '+v.getmonthName+' '+item.i+', '+v.statusYear)}" aria-sort="none" class="{! or((item.res) == 'SAT ',(item.res) == 'SUN ') ? 'slds-is-resizable slds-is-sortable shadeWeekends' : 'slds-is-resizable slds-is-sortable'}" scope="col" title="{! (item.res+' '+v.getmonthName+' '+item.i+', '+v.statusYear)}">
+                                                        <a class="slds-th__action slds-text-link_reset" href="javascript:void(0);" role="button" tabindex="0">
+                                                            <div class="slds-grid slds-grid_vertical-align-center slds-has-flexi-truncate">
+                                                                <span class="slds-truncate" title="{! (item.res+' '+v.getmonthName+' '+item.i+', '+v.statusYear)}">{!item.res}&nbsp;{!item.i}</span>
+                                                            </div>
+                                                        </a>
+                                                    </th>
+                                                </aura:iteration>
+                                                <aura:set attribute="else">
+                                                    <aura:iteration items="{!v.numOfDays}" var="item" >
+                                                        <th style="width:9rem;" aria-label="{! (item.res+' '+item.i+'/'+v.getmonth)}" aria-sort="none" class="{! or((item.res) == 'SAT ',(item.res) == 'SUN ') ? 'slds-is-resizable slds-is-sortable shadeWeekends' : 'slds-is-resizable slds-is-sortable'}" scope="col" title="{! (item.res+' '+v.getmonthName+' '+item.i+', '+v.statusYear)}">
+                                                            <a class="slds-th__action slds-text-link_reset" href="javascript:void(0);" role="button" tabindex="0">
+                                                                <div class="slds-grid slds-grid_vertical-align-center slds-has-flexi-truncate">
+                                                                    <span class="slds-truncate">{!item.res}&nbsp;{!v.getmonthName}&nbsp;{!item.i},&nbsp;{!v.statusYear}</span>
+                                                                </div>
+                                                            </a>
+                                                        </th>
+                                                    </aura:iteration>
+                                                </aura:set>
+                                            </aura:if>
+                                        </aura:set>
+                                    </aura:if>
+                                    
+                                    <th class="cells">
+                                        <aura:if isTrue="{! and(v.showMonthButton,v.nextShowMonthButton)}">
+                                            <lightning:buttonIcon iconName="utility:chevronright" alternativeText="Next" onclick="{!c.nextMonth}" variant="bare" class="next"/>
+                                        </aura:if>
+                                        <aura:if isTrue="{! and(v.showButton,v.nextShowButton)}">
+                                            <lightning:buttonIcon iconName="utility:chevronright" alternativeText="Next" onclick="{!c.nextWeek}" variant="bare" class="weekNext"/>
+                                        </aura:if>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <aura:iteration items="{!v.spaceFamily}" var="sf" indexVar="i">
+                                    <tr aria-expanded="{!v.openSection}" aria-level="1" aria-posinset="{!i+1}" aria-selected="false" aria-setsize="" class="slds-hint-parent" tabindex="0">
+                                        <th class="slds-tree__item" data-label="{!sf.sfName}" scope="row" style="line-height: 16px; height: 25px;"> 
+                                            <lightning:buttonIcon value="{!i+':'+ sf.sfRecordId}" onclick="{!c.toggleFamily}" iconName="{!sf.expanded?'utility:chevrondown':'utility:chevronright'}" size="x-small"/>
+                                            <div class="slds-truncate" title="{!sf.sfName}">
+                                                <a href="{!'/'+sf.sfRecordId}" tabindex="-1" style="color: darkblue !important;
+                                                                                                    font-weight: 600;
+                                                                                                    font-family: sans-serif;">{!sf.sfName}</a>
+                                            </div>
+                                        </th>
+                                        <td data-label="none" role="gridcell" style="line-height: 16px; height: 25px;">
+                                            <div class="slds-truncate"></div>
+                                        </td>
+                                        <aura:iteration items="{!v.numOfDays}" var="nod" >
+                                            <td></td>
+                                        </aura:iteration>
+                                        
+                                        <td data-label="none" role="gridcell" style="line-height: 16px; height: 25px;">
+                                            <div class="slds-truncate"></div>
+                                        </td>
+                                    </tr>
+                                    <aura:if isTrue="{!sf.expanded}">
+                                        <aura:iteration items="{!sf.spaceList}" var="space" indexVar="j">
+                                            
+                                            <tr aria-level="2" aria-posinset="{!j}" aria-selected="true" aria-setsize="" class="slds-hint-parent">
+                                                <th class="slds-tree__item" data-label="{!space.spName}" scope="row" style="line-height: 16px; height: 25px;">
+                                                    <lightning:buttonIcon value="{!(i+':'+j)}" onclick="{!c.toggleSpaces}" iconName="{!space.expanded?'utility:chevrondown':'utility:chevronright'}" size="x-small"/>
+                                                    <div class="slds-truncate" title="{!space.spName}">
+                                                        <a href="{!'/'+space.spRecordId}" tabindex="-1" style="color: blue !important;
+                                                                                                               font-weight: 500;
+                                                                                                               font-family: sans-serif;">{!space.spName}</a>
+                                                    </div>
+                                                </th>
+                                                <td data-label="none" role="gridcell" style="line-height: 16px; height: 25px;">
+                                                    <div class="slds-truncate"></div>
+                                                </td>
+                                                
+                                                <!-- Occupied and Vacant Row Creation -->
+                                                <aura:iteration items="{!v.numOfDays}">
+                                                    <td></td>
+                                                </aura:iteration>
+                                            </tr>
+                                            <aura:if isTrue="{!space.expanded}">
+                                                <!-- Start Events Data -->
+                                           
+                                                    <aura:iteration items="{!space.spaceOppList}" var="vas" indexVar="i">
+                                                        <tr><td class="heightOfTD"></td><td class="heightOfTD" style=" border-left: 1px;"> </td> <!--Changed solid black -->
+                                                            <aura:iteration items="{!v.numOfDays}" var="item" indexVar="{!item}">
+                                                                <aura:if isTrue="{! and(item.i ge vas.startDay, item.i le vas.endDay)}">
+                                                                    <td class="{!vas.Holding_Option == 'Not Holding'? 'Purple heightOfTD':
+                                                                               vas.Holding_Option == '1st Option'? 'Orange heightOfTD':
+                                                                               vas.Holding_Option == '2nd Option'? 'Yellow heightOfTD':
+                                                                               vas.Holding_Option == 'Exclusivity'? 'DarkBlue heightOfTD':
+                                                                               vas.Holding_Option == 'Back of House'? 'Grey heightOfTD':
+                                                                               vas.Holding_Option == 'Tentative'? 'Blue heightOfTD':
+                                                                               vas.Holding_Option == 'Awaiting Deposit'? 'DarkGreen heightOfTD':
+                                                                               vas.Holding_Option == 'Confirmed'? 'BrightGreen heightOfTD':
+                                                                               'lt50'}" style="border-radius: 2px;;">
+                                                                        
+                                                                        
+                                                                        <div class="slds-truncate tooltip" data-toggle="tooltip" title="{!vas.eventTitle}">
+                                                                            
+                                                                            <a href="{!'/lightning/r/Main_Event__c/'+vas.eventRecordId+'/view'}" tabindex="0"  title="{!vas.eventTitle}" class="tip">
+                                                                                <div class="{!vas.startDay == item.i ? 'slds' : 'slds-hidden'}" style="color:black;font-weight: 700; text-transform: uppercase;font-size:10px;">
+                                                                                    {!vas.eventName}
+                                                                                </div>
+                                                                            </a>
+                                                                            <!--span class="tooltiptext">Tooltip text</span-->
+                                                                        </div>
+                                                                    </td>
+                                                                    <aura:set attribute="else">
+                                                                        <aura:if isTrue="{! or( and(item.i ge vas.riggingStartDay, item.i le vas.riggingEndDay), and(item.i ge vas.derigStartDay, item.i le vas.derigEndDay))}">
+                                                                            <td class="grey heightOfTD"  title="{!vas.eventTitle}" >
+                                                                                
+                                                                                <div class="slds-truncate" title="">
+                                                                                    <a href="{!'/lightning/r/Main_Event__c/'+vas.eventRecordId+'/view'}" tabindex="0"  title="{!vas.eventTitle}" class="tip">
+                                                                                        <div class="slds-hidden">
+                                                                                            {!vas.eventName}
+                                                                                        </div>
+                                                                                    </a>
+                                                                                </div>
+                                                                            </td>
+                                                                            <aura:set attribute="else">
+                                                                                <aura:if isTrue="{!item.i lt vas.nextBlankDat}">
+                                                                                    <td class="heightOfTD"></td>
+                                                                                  
+                                                                                </aura:if>
+                                                                            </aura:set>
+                                                                        </aura:if>
+                                                                    </aura:set>
+                                                                </aura:if>
+                                                            </aura:iteration>
+                                                            
+                                                            
+                                                            <aura:iteration items="{!vas.innerSpaceOppList}" var="vas12" indexVar="innerVar">
+                                                             <aura:iteration items="{!v.numOfDays}" var="iteminner" indexVar="{!iteminner}" start="{!vas12.riggingStartDay-1}">
+                                                                <aura:if isTrue="{! and(iteminner.i ge vas12.startDay, iteminner.i le vas12.endDay)}">
+                                                                    <td class="{!vas12.Holding_Option == 'Not Holding'? 'Purple heightOfTD':
+                                                                               vas12.Holding_Option == '1st Option'? 'Orange heightOfTD':
+                                                                               vas12.Holding_Option == '2nd Option'? 'Yellow heightOfTD':
+                                                                               vas12.Holding_Option == 'Exclusivity'? 'DarkBlue heightOfTD':
+                                                                               vas12.Holding_Option == 'Back of House'? 'Grey heightOfTD':
+                                                                               vas12.Holding_Option == 'Tentative'? 'Blue heightOfTD':
+                                                                               vas12.Holding_Option == 'Awaiting Deposit'? 'DarkGreen heightOfTD':
+                                                                               vas12.Holding_Option == 'Confirmed'? 'BrightGreen heightOfTD':
+                                                                               'lt50'}" style="border-radius: 2px;;">
+                                                                        
+                                                                        
+                                                                        <div class="slds-truncate tooltip" data-toggle="tooltip" title="{!vas12.eventTitle}">
+                                                                            
+                                                                            <a href="{!'/lightning/r/Main_Event__c/'+vas12.eventRecordId+'/view'}" tabindex="0"  title="{!vas12.eventTitle}" class="tip">
+                                                                                <div class="{!vas12.startDay == iteminner.i ? 'slds' : 'slds-hidden'}" style="color:black;font-weight: 700; text-transform: uppercase;font-size:10px;">
+                                                                                    {!vas12.eventName}
+                                                                                </div>
+                                                                            </a>
+                                                                            <!--span class="tooltiptext">Tooltip text</span-->
+                                                                        </div>
+                                                                    </td>
+                                                                    <aura:set attribute="else">
+                                                                        <aura:if isTrue="{! or( and(iteminner.i ge vas12.riggingStartDay, iteminner.i le vas12.riggingEndDay), and(iteminner.i ge vas12.derigStartDay, iteminner.i le vas12.derigEndDay))}">
+                                                                            <td class="grey heightOfTD"  title="{!vas12.eventTitle}" >
+                                                                                
+                                                                                <div class="slds-truncate" title="">
+                                                                                    <a href="{!'/lightning/r/Main_Event__c/'+vas12.eventRecordId+'/view'}" tabindex="0"  title="{!vas12.eventTitle}" class="tip">
+                                                                                        <div class="slds-hidden">
+                                                                                            {!vas12.eventName}
+                                                                                        </div>
+                                                                                    </a>
+                                                                                </div>
+                                                                            </td>
+                                                                            <aura:set attribute="else">
+                                                   								
+                                                                                 <aura:if  isTrue="{!iteminner.i lt vas12.nextBlankDat}">
+                                                                                    <td class="heightOfTD"></td>
+                                                                                     
+                                                                                </aura:if>
+                                                                            </aura:set>
+                                                                        </aura:if>
+                                                                    </aura:set>
+                                                                </aura:if>
+                                                            </aura:iteration>
+                                                            </aura:iteration>
+                                                        </tr>
+                                                    </aura:iteration>
+                                            </aura:if>
+                                        </aura:iteration>
+                                    </aura:if>
+                                </aura:iteration>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div> 
+    </div>
+</aura:component>
